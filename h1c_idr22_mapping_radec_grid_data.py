@@ -22,30 +22,18 @@ RAD2HR = 12/np.pi
 HR2DEG = 15
 
 data_type = 'h1c_idr22' # 'validation', 'h1c_idr32'
-val_type = 'sum' # 'true_eor', 'true_foregrounds', 'true_sum', 'sum', only useful when data_type == 'validation'
-# version = '2023Feb23'
-# n_int = 100 # number of integrations
-# n_ant = 320
-# map_type = '%dint%dant'%(n_int, n_ant)
+field = 'field2'
 band = 'band1'
-split = 'even'
+split = 'odd'
 
 sequence = 'forward'
-nthread = 15
+nthread = 20
 
-if data_type == 'h1c_idr22':
-    OUTPUT_FOLDER = '/nfs/esc/hera/zhileixu/optimal_mapping/h1c_idr22/radec_grid/%s/%s'%(band, split)
-elif data_type == 'validation':
-#     OUTPUT_FOLDER = '/nfs/esc/hera/zhileixu/optimal_mapping/h1c_idr22/radec_grid/validation/%s/%s/%s'%(val_type, version, map_type)
-    OUTPUT_FOLDER = '/nfs/esc/hera/zhileixu/optimal_mapping/h1c_idr22/radec_grid/validation/%s/data'%(val_type)
+OUTPUT_FOLDER = '/nfs/esc/hera/zhileixu/optimal_mapping/h1c_idr22/radec_grid/%s/%s/%s'%(field, band, split)
 OVERWRITE = False
 
 print('Data type:', data_type)
-if data_type == 'validation':
-    print('Validation type:', val_type)
-print('Mapping para.:', sequence, band, split) 
-# print('Number of integrations:', n_int)
-# print('Number of antennas:', n_ant)
+print('Mapping para.:', sequence, field, band, split) 
 print('overwrite:', OVERWRITE)
 print('Number of threads:', nthread)
 print(OUTPUT_FOLDER)
@@ -54,20 +42,27 @@ def radec_map_making(files, ifreq, ipol,
                      p_mat_calc=True, 
                      select_ant=False):
 
+    # Fields
+    # field 1: 1.25 -- 2.7 hr
+    if field == 'field1':
+        lst_ends = np.array([1.25, 2.7]) / RAD2HR
+    # field 2: 4.5 -- 6.5 hr
+    elif field == 'field2':
+        lst_ends = np.array([4.5, 6.5]) / RAD2HR
+    # field 3: 8.5 -- 10.75 hr
+    elif field == 'field3':
+        lst_ends = np.array([8.5, 10.75]) / RAD2HR
+    else:
+        print('Wrong field is given')   
+    
     t0 = time.time()
-    ra_center_deg = 29.6 # 29.6 for idr22 3:8, 24.2 for idr22 0:9
+    ra_center_deg = np.mean(lst_ends) * HR2DEG # 29.6 for idr22 3:8, 24.2 for idr22 0:9
     dec_center_deg = -30.7
     ra_rng_deg = 32
     n_ra = 64
     dec_rng_deg = 8
-    n_dec = 16
-    
-    # Fields
-    # field 1: 1.25 -- 2.7 hr
-    # field 2: 4.5 -- 6.5 hr
-    # field 3: 8.5 -- 10.75 hr
-    lst_ends = np.array([1.25, 2.7]) / RAD2HR
-    
+    n_dec = 16   
+       
     sky_px = optimal_mapping_radec_grid.SkyPx()
     px_dic = sky_px.calc_radec_pix(ra_center_deg, ra_rng_deg, n_ra, 
                             dec_center_deg, dec_rng_deg, n_dec)
@@ -111,7 +106,7 @@ def radec_map_making(files, ifreq, ipol,
         opt_map = optimal_mapping_radec_grid.OptMapping(dc.uv_1d, px_dic)
 
         file_name = OUTPUT_FOLDER+\
-        '/h1c_idr22_%s_%.2fMHz_pol%d_radec_grid_RA%dDec%d.p'%(split, freq/1e6, ipol, 
+        '/h1c_idr22_%s_%s_%.2fMHz_pol%d_radec_grid_RA%dDec%d.p'%(field, split, freq/1e6, ipol, 
                                                                               ra_rng_deg, dec_rng_deg)
 
         if OVERWRITE == False:
@@ -120,7 +115,6 @@ def radec_map_making(files, ifreq, ipol,
                 return
 
         opt_map.set_a_mat(uvw_sign=1)
-#         print(opt_map.a_mat.shape)
         opt_map.set_inv_noise_mat(dc.uvn, norm=True)
         map_vis = np.matmul(np.conjugate(opt_map.a_mat.T), 
                             np.matmul(opt_map.inv_noise_mat, 
@@ -169,33 +163,17 @@ def radec_map_making(files, ifreq, ipol,
     return
 
 if __name__ == '__main__':
-    if data_type == 'h1c_idr22':
-        #H1C part
-        data_folder = '/nfs/esc/hera/H1C_IDR22/IDR2_2_pspec/v2/one_group/data'
-        files = np.array(sorted(glob(data_folder+'/zen.grp1.of1.LST.*.HH.OCRSLP2X.uvh5')))[2:8]
-    elif data_type == 'h1c_idr32':
-        data_folder = '/nfs/esc/hera/H1C_IDR32/LSTBIN/all_epochs'
-        files = np.array(sorted(glob(data_folder+'/zen.grp1.of1.LST.*.sum.uvh5')))
-    elif data_type == 'validation':
-        if val_type == 'sum':
-            data_folder = '/nfs/esc/hera/Validation/test-4.0.0/pipeline/LSTBIN/%s'%val_type
-            files = np.array(sorted(glob(data_folder+'/zen.grp1.of1.LST.*.HH.OCRSLPX.uvh5')))[:3]
-        elif val_type == 'true_sum':
-            data_folder = '/nfs/esc/hera/Validation/test-4.0.0/pipeline/LSTBIN/%s'%val_type
-            files = np.array(sorted(glob(data_folder+'/zen.grp1.of1.LST.*.HH.OCRSL.uvh5')))[:3]
-        elif val_type == 'true_foregrounds':
-            data_folder = '/nfs/esc/hera/Validation/test-4.0.0/pipeline/LSTBIN/%s'%val_type
-            files = np.array(sorted(glob(data_folder+'/zen.grp1.of1.LST.*.HH.OCRSL.uvh5')))[:3]
-        elif val_type == 'true_eor':
-            data_folder = '/nfs/esc/hera/Validation/test-4.0.0/pipeline/LSTBIN/%s'%val_type
-            files = np.array(sorted(glob(data_folder+'/zen.eor.LST.*.HH.uvh5')))[:3]
-        elif val_type == 'honggeun_gsm':
-            data_folder = '/nfs/ger/proj/hera/hgkim/simulations/dipole_GSM_nside256/2023Feb23'
-            files = np.array(sorted(glob(data_folder+'/sim.2458116.*_GSM2008_nside256_J2000.uvh5')))[:] # from 19.5 to 27.8 deg RA
-        else:
-            print('Wrong validation type.')
+    #H1C part
+    data_folder = '/nfs/esc/hera/H1C_IDR22/IDR2_2_pspec/v2/one_group/data'
+    files = np.array(sorted(glob(data_folder+'/zen.grp1.of1.LST.*.HH.OCRSLP2X.uvh5')))
+    if field == 'field1':
+        files = files[3:8]
+    elif field == 'field2':
+        files = files[12:18]
+    elif field == 'field3':
+        files = files[23:34]
     else:
-        print('Wrong data type.')
+        print('Woring field is given.')
         
     print('%d Files being mapped:\n'%len(files), files)
     if band == 'band1':
@@ -203,9 +181,7 @@ if __name__ == '__main__':
     elif band == 'band2':
         ifreq_arr = np.arange(515, 695, dtype=int) #band2
     else:
-        raise RuntimeError('Wrong input for band.')
-#     ifreq_arr = np.arange(180)
-#     ifreq_arr = np.arange(77, 79)    
+        raise RuntimeError('Wrong input for band.')   
     ipol_arr = [-5]
     if sequence == 'forward':
         args = product(np.expand_dims(files, axis=0), ifreq_arr[:], ipol_arr)
