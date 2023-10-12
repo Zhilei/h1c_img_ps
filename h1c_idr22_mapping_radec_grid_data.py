@@ -22,9 +22,10 @@ RAD2HR = 12/np.pi
 HR2DEG = 15
 
 data_type = 'h1c_idr22' # 'validation', 'h1c_idr32'
-field = 'field2'
-band = 'band1'
-split = 'odd'
+field = 'field1'
+band = 'band2'
+split = 'even'
+ipol_arr = [-5, -6]
 
 sequence = 'forward'
 nthread = 20
@@ -32,8 +33,33 @@ nthread = 20
 OUTPUT_FOLDER = '/nfs/esc/hera/zhileixu/optimal_mapping/h1c_idr22/radec_grid/%s/%s/%s'%(field, band, split)
 OVERWRITE = False
 
+# Fields
+# field 1: 1.25 -- 2.7 hr
+if field == 'field1':
+    lst_ends = np.array([1.25, 2.7]) / RAD2HR
+# field 2: 4.5 -- 6.5 hr
+elif field == 'field2':
+    lst_ends = np.array([4.5, 6.5]) / RAD2HR
+# field 3: 8.5 -- 10.75 hr
+elif field == 'field3':
+    lst_ends = np.array([8.5, 10.75]) / RAD2HR
+else:
+    print('Wrong field is given')   
+
+ra_center_deg = np.degrees(np.mean(lst_ends)) # 29.6 for idr22 3:8, 24.2 for idr22 0:9
+dec_center_deg = -30.7
+ra_rng_deg = 45
+n_ra = 90
+dec_rng_deg = 16
+n_dec = 32
+
+sky_px = optimal_mapping_radec_grid.SkyPx()
+px_dic = sky_px.calc_radec_pix(ra_center_deg, ra_rng_deg, n_ra, 
+                        dec_center_deg, dec_rng_deg, n_dec)
+
 print('Data type:', data_type)
-print('Mapping para.:', sequence, field, band, split) 
+print('Mapping para.:', sequence, field, band, split, ipol_arr)
+print('Pixelization: %.1fdeg X %.1fdeg (%d X %d)'%(ra_rng_deg, dec_rng_deg, n_ra, n_dec), ', centering at (%.2fdeg, %.2fdeg).'%(ra_center_deg, dec_center_deg))
 print('overwrite:', OVERWRITE)
 print('Number of threads:', nthread)
 print(OUTPUT_FOLDER)
@@ -41,31 +67,8 @@ print(OUTPUT_FOLDER)
 def radec_map_making(files, ifreq, ipol,
                      p_mat_calc=True, 
                      select_ant=False):
-
-    # Fields
-    # field 1: 1.25 -- 2.7 hr
-    if field == 'field1':
-        lst_ends = np.array([1.25, 2.7]) / RAD2HR
-    # field 2: 4.5 -- 6.5 hr
-    elif field == 'field2':
-        lst_ends = np.array([4.5, 6.5]) / RAD2HR
-    # field 3: 8.5 -- 10.75 hr
-    elif field == 'field3':
-        lst_ends = np.array([8.5, 10.75]) / RAD2HR
-    else:
-        print('Wrong field is given')   
     
-    t0 = time.time()
-    ra_center_deg = np.mean(lst_ends) * HR2DEG # 29.6 for idr22 3:8, 24.2 for idr22 0:9
-    dec_center_deg = -30.7
-    ra_rng_deg = 32
-    n_ra = 64
-    dec_rng_deg = 8
-    n_dec = 16   
-       
-    sky_px = optimal_mapping_radec_grid.SkyPx()
-    px_dic = sky_px.calc_radec_pix(ra_center_deg, ra_rng_deg, n_ra, 
-                            dec_center_deg, dec_rng_deg, n_dec)
+    t0 = time.time()  
     uv_org = UVData()
     uv_org.read(files, freq_chans=ifreq, polarizations=ipol)
 #     print('Start lst array:', np.unique(uv_org.lst_array) * RAD2HR)
@@ -182,7 +185,6 @@ if __name__ == '__main__':
         ifreq_arr = np.arange(515, 695, dtype=int) #band2
     else:
         raise RuntimeError('Wrong input for band.')   
-    ipol_arr = [-5]
     if sequence == 'forward':
         args = product(np.expand_dims(files, axis=0), ifreq_arr[:], ipol_arr)
     elif sequence == 'backward':
@@ -190,9 +192,9 @@ if __name__ == '__main__':
     else:
         raise RuntimeError('Sequence should be either forward or backward.')
 
-#     for args_t in args:
+    for args_t in args:
 #         print(args_t)
-#         radec_map_making(*args_t)
+        radec_map_making(*args_t)
 
     pool = multiprocessing.Pool(processes=nthread)
     pool.starmap(radec_map_making, args)
