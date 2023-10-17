@@ -22,13 +22,14 @@ RAD2HR = 12/np.pi
 HR2DEG = 15
 
 data_type = 'h1c_idr22' # 'validation', 'h1c_idr32'
+suffix = "OCRSLP2X"
 field = 'field1'
 band = 'band2'
-split = 'even'
+split = 'odd'
 ipol_arr = [-5, -6]
 
 sequence = 'forward'
-nthread = 20
+nthread = 15
 
 OUTPUT_FOLDER = '/nfs/esc/hera/zhileixu/optimal_mapping/h1c_idr22/radec_grid/%s/%s/%s'%(field, band, split)
 OVERWRITE = False
@@ -109,7 +110,7 @@ def radec_map_making(files, ifreq, ipol,
         opt_map = optimal_mapping_radec_grid.OptMapping(dc.uv_1d, px_dic)
 
         file_name = OUTPUT_FOLDER+\
-        '/h1c_idr22_%s_%s_%.2fMHz_pol%d_radec_grid_RA%dDec%d.p'%(field, split, freq/1e6, ipol, 
+        '/h1c_idr22_%_%s_%s_%.2fMHz_pol%d_radec_grid_RA%dDec%d.p'%(suffix, field, split, freq/1e6, ipol, 
                                                                               ra_rng_deg, dec_rng_deg)
 
         if OVERWRITE == False:
@@ -167,16 +168,30 @@ def radec_map_making(files, ifreq, ipol,
 
 if __name__ == '__main__':
     #H1C part
-    data_folder = '/nfs/esc/hera/H1C_IDR22/IDR2_2_pspec/v2/one_group/data'
-    files = np.array(sorted(glob(data_folder+'/zen.grp1.of1.LST.*.HH.OCRSLP2X.uvh5')))
-    if field == 'field1':
-        files = files[3:8]
-    elif field == 'field2':
-        files = files[12:18]
-    elif field == 'field3':
-        files = files[23:34]
+    if suffix == "OCRSLP2X":
+        data_folder = '/nfs/esc/hera/H1C_IDR22/IDR2_2_pspec/v2/one_group/data'
+        files = np.array(sorted(glob(data_folder+'/zen.grp1.of1.LST.*.HH.%s.uvh5'%suffix)))
+        if field == 'field1':
+            files = files[3:8]
+        elif field == 'field2':
+            files = files[12:18]
+        elif field == 'field3':
+            files = files[23:34]
+        else:
+            print('Wrong field is given.')
+    elif suffix == "OCRSLP2XTK":
+        data_folder = '/nfs/esc/hera/H1C_IDR22/IDR2_2_pspec/v2/one_group/data'
+        files = np.array(sorted(glob(data_folder+'/zen.grp1.of1.LST.*.HH.%s.uvh5'%suffix)))
+        if field == 'field1':
+            files = files[1:3]
+        elif field == 'field2':
+            files = files[3:6]
+        elif field == 'field3':
+            files = files[7:10]
+        else:
+            print('Wrong field is given.')
     else:
-        print('Woring field is given.')
+        print("Wrong data suffix.")
         
     print('%d Files being mapped:\n'%len(files), files)
     if band == 'band1':
